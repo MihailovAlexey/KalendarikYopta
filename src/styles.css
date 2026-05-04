@@ -525,19 +525,21 @@ button {
   padding: 20px;
   background: rgba(12, 13, 19, 0.72);
   backdrop-filter: blur(16px);
+  overflow: hidden;
 }
 
 .admin-panel {
   display: grid;
   gap: 18px;
   width: min(1200px, 100%);
-  max-height: 100%;
+  height: min(92vh, 100%);
   margin: 0 auto;
   border: 1px solid var(--line);
   border-radius: 30px;
   background: rgba(26, 27, 35, 0.98);
   padding: 22px;
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .admin-header {
@@ -552,12 +554,14 @@ button {
   grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
   gap: 18px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .admin-sidebar {
   display: grid;
   gap: 12px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .admin-new-button {
@@ -568,7 +572,9 @@ button {
   display: grid;
   gap: 10px;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding-right: 6px;
 }
 
@@ -609,7 +615,9 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding-right: 6px;
 }
 
@@ -671,21 +679,31 @@ button {
 @media (max-width: 1080px) {
   .admin-content {
     grid-template-columns: 1fr;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-sidebar {
+    min-height: 240px;
   }
 }
 
 @media (max-width: 760px) {
   .admin-overlay {
-    padding: 10px;
+    padding: 0;
   }
 
   .admin-panel {
-    border-radius: 24px;
-    padding: 16px;
+    width: 100%;
+    height: 100vh;
+    border-radius: 0;
+    padding: 16px 14px 20px;
   }
 
   .admin-form-grid {
     grid-template-columns: 1fr;
+    padding-right: 2px;
   }
 
   .admin-field-wide {
@@ -695,6 +713,18 @@ button {
   .admin-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .admin-content {
+    gap: 14px;
+  }
+
+  .admin-sidebar {
+    min-height: 200px;
+  }
+
+  .admin-event-list {
+    max-height: 220px;
   }
 }
 
