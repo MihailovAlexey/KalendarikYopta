@@ -47,14 +47,23 @@ function formatReminderText(event: ReminderRow, hoursBeforeStart: 24 | 3) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST" && req.method !== "GET") {
+  if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, { status: 405 });
   }
 
   try {
     const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const cronSecret = Deno.env.get("SEND_REMINDERS_CRON_SECRET");
     if (!botToken) {
       throw new Error("Missing TELEGRAM_BOT_TOKEN secret.");
+    }
+    if (!cronSecret) {
+      throw new Error("Missing SEND_REMINDERS_CRON_SECRET secret.");
+    }
+
+    const authorization = req.headers.get("authorization");
+    if (authorization !== `Bearer ${cronSecret}`) {
+      return jsonResponse({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { data, error } = await supabase
