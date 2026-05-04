@@ -7,6 +7,7 @@ type EventRow = {
   title: string;
   start_date: string;
   end_date: string | null;
+  emoji: string | null;
   place: string;
   city: string;
   external_url: string | null;
@@ -29,6 +30,7 @@ function mapEventRow(row: EventRow): CalendarEvent {
     title: row.title,
     startDate: row.start_date,
     endDate: row.end_date ?? undefined,
+    emoji: row.emoji ?? "📍",
     place: row.place,
     city: row.city,
     link: row.external_url ?? undefined,
@@ -36,7 +38,6 @@ function mapEventRow(row: EventRow): CalendarEvent {
     tone: row.tone,
     status: row.status,
     registrationDeadline: row.registration_deadline ?? undefined,
-    tags: row.tags ?? [],
   };
 }
 
@@ -52,7 +53,7 @@ export async function loadEvents(): Promise<EventLoadResult> {
   const { data, error } = await supabase
     .from("events")
     .select(
-      "slug, title, start_date, end_date, place, city, external_url, comment, tone, status, registration_deadline, tags",
+      "slug, title, start_date, end_date, emoji, place, city, external_url, comment, tone, status, registration_deadline, tags",
     )
     .eq("status", "published")
     .order("start_date", { ascending: true });
@@ -80,4 +81,3 @@ export async function loadEvents(): Promise<EventLoadResult> {
     message: "События загружены из Supabase.",
   };
 }
-

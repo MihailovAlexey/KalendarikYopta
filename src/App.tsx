@@ -46,7 +46,6 @@ function App() {
   const monthGrid = buildMonthGrid(selectedMonth);
   const weekdayNames = getWeekdayNames();
   const nextEvent = getUpcomingEvent(events);
-  const cities = [...new Set(events.map((event) => event.city))];
 
   useEffect(() => {
     initializeTelegramWebApp();
@@ -141,12 +140,11 @@ function App() {
 
       <section className="hero-card">
         <div className="hero-copy">
-          <p className="eyebrow">Telegram Mini App / MVP</p>
-          <h1>Календарик летних мероприятий</h1>
+          <p className="eyebrow">Лето 2026</p>
+          <h1>Календарь мероприятий</h1>
           <p className="hero-text">
-            Первый экран для Mini App: темная адаптивная сетка календаря, список и
-            карточка события. Цветовое направление основано на твоем Figma-референсе,
-            но сама композиция уже заточена под автомобильные и фестивальные ивенты.
+            Ближайшие события сезона в одном календаре: даты, площадки, ссылки и
+            напоминания в Telegram.
           </p>
           <div className={`source-pill ${dataSource}`}>
             {isLoading ? "Загрузка..." : dataMessage}
@@ -161,11 +159,7 @@ function App() {
         <div className="hero-stats">
           <div className="stat-card">
             <span className="stat-value">{events.length}</span>
-            <span className="stat-label">мероприятий в сезоне</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">{cities.length}</span>
-            <span className="stat-label">городов и выездов</span>
+            <span className="stat-label">событий в сезоне</span>
           </div>
           <div className="stat-card accent">
             <span className="stat-value">
@@ -246,7 +240,9 @@ function App() {
                   <div className="day-events">
                     {dayEvents.slice(0, 2).map((event) => (
                       <span className={`day-pill ${event.tone}`} key={event.id}>
-                        {event.title}
+                        <span className="day-pill-emoji" aria-hidden="true">
+                          {event.emoji}
+                        </span>
                       </span>
                     ))}
 
@@ -283,14 +279,6 @@ function App() {
                   {selectedEvent.comment ??
                     "Комментарий можно будет редактировать из админского интерфейса."}
                 </p>
-
-                <div className="tag-row">
-                  {selectedEvent.tags.map((tag) => (
-                    <span className="tag-chip" key={tag}>
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
 
                 {selectedEvent.registrationDeadline ? (
                   <div className="warning-box">
@@ -350,7 +338,6 @@ function App() {
                 <p className="panel-kicker">Список месяца</p>
                 <h2>{monthEvents.length} событий</h2>
               </div>
-              <span className="subtle-note">read-only для пользователей</span>
             </div>
 
             <div className="event-list">
@@ -379,15 +366,6 @@ function App() {
                 </button>
               ))}
             </div>
-          </section>
-
-          <section className="panel panel-note">
-            <p className="panel-kicker">Как это будет жить в проде</p>
-            <h2>Без своего сервера</h2>
-            <p className="detail-comment">
-              События редактируются в Supabase, Mini App читает только опубликованные
-              записи, а Telegram-бот отправляет уведомления по подпискам через cron.
-            </p>
           </section>
         </div>
       </section>

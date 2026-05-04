@@ -7,6 +7,7 @@ export type CalendarEvent = {
   title: string;
   startDate: string;
   endDate?: string;
+  emoji: string;
   place: string;
   city: string;
   link?: string;
@@ -14,6 +15,4 @@ export type CalendarEvent = {
   tone: EventTone;
   status: EventStatus;
   registrationDeadline?: string;
-  tags: string[];
 };
-

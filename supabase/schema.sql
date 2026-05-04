@@ -24,6 +24,7 @@ create table if not exists public.events (
   title text not null,
   start_date date not null,
   end_date date,
+  emoji text not null default '📍',
   place text not null,
   city text not null,
   external_url text,
