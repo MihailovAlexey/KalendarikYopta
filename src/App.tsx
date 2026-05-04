@@ -15,9 +15,7 @@ import {
 } from "./lib/calendar";
 import { loadEvents } from "./lib/eventStore";
 import {
-  getTelegramUser,
   initializeTelegramWebApp,
-  isTelegramWebAppAvailable,
 } from "./lib/telegramWebApp";
 import { syncEventSubscription } from "./lib/subscriptions";
 import type { CalendarEvent } from "./types";
@@ -27,13 +25,8 @@ function App() {
   const [monthIndex, setMonthIndex] = useState(0);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [subscribedEventIds, setSubscribedEventIds] = useState<string[]>([]);
-  const [dataMessage, setDataMessage] = useState("Загружаем данные...");
-  const [dataSource, setDataSource] = useState<"local" | "supabase">("local");
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(false);
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
-  const [telegramUserName, setTelegramUserName] = useState("");
-  const [isTelegramMode, setIsTelegramMode] = useState(false);
 
   const availableMonths = getAvailableMonths(events);
   const safeMonthIndex =
@@ -49,16 +42,12 @@ function App() {
 
   useEffect(() => {
     initializeTelegramWebApp();
-    const user = getTelegramUser();
-    setTelegramUserName(user?.first_name ?? user?.username ?? "");
-    setIsTelegramMode(isTelegramWebAppAvailable());
   }, []);
 
   useEffect(() => {
     let isDisposed = false;
 
     async function bootstrapData() {
-      setIsLoading(true);
       const result = await loadEvents();
 
       if (isDisposed) {
@@ -77,11 +66,8 @@ function App() {
       const nextMonthEvents = getEventsForMonth(result.events, nextSelectedMonth);
 
       setEvents(result.events);
-      setDataSource(result.source);
-      setDataMessage(result.message);
       setMonthIndex(nextMonthIndex);
       setSelectedEventId(nextMonthEvents[0]?.id ?? result.events[0]?.id ?? "");
-      setIsLoading(false);
     }
 
     void bootstrapData();
@@ -146,14 +132,6 @@ function App() {
             Ближайшие события сезона в одном календаре: даты, площадки, ссылки и
             напоминания в Telegram.
           </p>
-          <div className={`source-pill ${dataSource}`}>
-            {isLoading ? "Загрузка..." : dataMessage}
-          </div>
-          <div className={`runtime-pill ${isTelegramMode ? "telegram" : "browser"}`}>
-            {isTelegramMode
-              ? `Режим Telegram${telegramUserName ? ` · ${telegramUserName}` : ""}`
-              : "Режим браузера для разработки"}
-          </div>
         </div>
 
         <div className="hero-stats">

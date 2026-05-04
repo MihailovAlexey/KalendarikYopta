@@ -128,27 +128,6 @@ button {
   line-height: 1.65;
 }
 
-.source-pill {
-  display: inline-flex;
-  margin-top: 18px;
-  align-items: center;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-size: 0.84rem;
-  font-weight: 700;
-}
-
-.source-pill.local {
-  background: rgba(248, 193, 94, 0.14);
-  color: #ffe2a6;
-}
-
-.source-pill.supabase {
-  background: rgba(87, 224, 193, 0.16);
-  color: #bdf7ea;
-}
-
-.runtime-pill,
 .subscription-box {
   display: inline-flex;
   margin-top: 10px;
@@ -157,16 +136,6 @@ button {
   padding: 10px 14px;
   font-size: 0.84rem;
   font-weight: 700;
-}
-
-.runtime-pill.telegram {
-  background: rgba(90, 189, 246, 0.15);
-  color: #caefff;
-}
-
-.runtime-pill.browser {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(245, 247, 251, 0.72);
 }
 
 .hero-stats {
