@@ -33,8 +33,10 @@ npm run dev
 
 ```bash
 VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
 ```
+
+`VITE_SUPABASE_ANON_KEY` тоже поддерживается как legacy-вариант, но сейчас лучше использовать `VITE_SUPABASE_PUBLISHABLE_KEY`.
 
 Если `.env` не заполнен, приложение запустится в локальном демо-режиме на встроенных данных.
 

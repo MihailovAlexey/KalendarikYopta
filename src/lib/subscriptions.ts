@@ -1,4 +1,4 @@
-import { isSupabaseConfigured } from "./supabase";
+import { getSupabasePublicKey, isSupabaseConfigured } from "./supabase";
 import { getTelegramInitData, isTelegramWebAppAvailable } from "./telegramWebApp";
 
 type SubscriptionAction = "subscribe" | "unsubscribe";
@@ -32,14 +32,14 @@ export async function syncEventSubscription(
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+  const publicKey = getSupabasePublicKey();
   const initData = getTelegramInitData();
 
-  if (!initData) {
+  if (!initData || !publicKey) {
     return {
       ok: false,
       mode: "local" as const,
-      message: "Telegram initData недоступен. Подписка не подтверждена сервером.",
+      message: "Telegram initData или Supabase key недоступны. Подписка не подтверждена сервером.",
     };
   }
 
@@ -47,8 +47,8 @@ export async function syncEventSubscription(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
+      apikey: publicKey,
+      Authorization: `Bearer ${publicKey}`,
       "x-telegram-init-data": initData,
     },
     body: JSON.stringify({
@@ -76,4 +76,3 @@ export async function syncEventSubscription(
         : `Подписка на "${json.title ?? eventSlug}" отключена.`,
   };
 }
-
