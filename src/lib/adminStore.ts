@@ -1,4 +1,5 @@
 import type { CalendarEvent } from "../types";
+import type { ToneLabelMap } from "../data/toneLabels";
 import { getTelegramInitData, isTelegramWebAppAvailable } from "./telegramWebApp";
 
 type AdminSessionResponse = {
@@ -35,6 +36,12 @@ type AdminEventsResponse = {
   error?: string;
 };
 
+type AdminTonesResponse = {
+  ok: boolean;
+  tones?: Array<{ tone: keyof ToneLabelMap; label: string }>;
+  error?: string;
+};
+
 export type EditableEvent = CalendarEvent & {
   originalSlug: string;
 };
@@ -67,6 +74,22 @@ function getAdminHeaders() {
 
 function getFunctionsBaseUrl() {
   return `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+}
+
+function mapToneRows(rows: Array<{ tone: keyof ToneLabelMap; label: string }>) {
+  return rows.reduce<ToneLabelMap>(
+    (accumulator, row) => {
+      accumulator[row.tone] = row.label;
+      return accumulator;
+    },
+    {
+      violet: "Главный этап",
+      coral: "Фестиваль",
+      sky: "Выезд / шоу",
+      amber: "Локальный ивент",
+      teal: "Регистрация горит",
+    },
+  );
 }
 
 export function createEmptyEditableEvent(): EditableEvent {
@@ -108,6 +131,32 @@ export async function loadAdminEvents() {
   };
 }
 
+export async function loadAdminTones() {
+  const response = await fetch(`${getFunctionsBaseUrl()}/admin-tones`, {
+    headers: getAdminHeaders(),
+  });
+  const json = (await response.json()) as AdminTonesResponse;
+
+  return {
+    ok: json.ok,
+    error: json.error,
+    toneLabels: mapToneRows(json.tones ?? []),
+  };
+}
+
+export async function saveAdminTone(tone: keyof ToneLabelMap, label: string) {
+  const response = await fetch(`${getFunctionsBaseUrl()}/admin-tones`, {
+    method: "POST",
+    headers: getAdminHeaders(),
+    body: JSON.stringify({
+      tone,
+      label,
+    }),
+  });
+
+  return (await response.json()) as { ok: boolean; error?: string };
+}
+
 export async function saveAdminEvent(event: EditableEvent) {
   const response = await fetch(`${getFunctionsBaseUrl()}/admin-events`, {
     method: "POST",
@@ -134,4 +183,3 @@ export async function saveAdminEvent(event: EditableEvent) {
   const json = (await response.json()) as { ok: boolean; error?: string };
   return json;
 }
-

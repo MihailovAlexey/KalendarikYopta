@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AdminPanel } from "./components/AdminPanel";
-import { events as fallbackEvents, toneLabels } from "./data/events";
+import { events as fallbackEvents } from "./data/events";
+import { fallbackToneLabels, type ToneLabelMap } from "./data/toneLabels";
 import {
   buildMonthGrid,
   eventOccursOnDate,
@@ -24,6 +25,7 @@ import type { CalendarEvent } from "./types";
 
 function App() {
   const [events, setEvents] = useState<CalendarEvent[]>(fallbackEvents);
+  const [toneLabels, setToneLabels] = useState<ToneLabelMap>(fallbackToneLabels);
   const [monthIndex, setMonthIndex] = useState(0);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [subscribedEventIds, setSubscribedEventIds] = useState<string[]>([]);
@@ -67,6 +69,7 @@ function App() {
     const nextMonthEvents = getEventsForMonth(result.events, nextSelectedMonth);
 
     setEvents(result.events);
+    setToneLabels(result.toneLabels);
     setMonthIndex(nextMonthIndex);
     setSelectedEventId(nextMonthEvents[0]?.id ?? result.events[0]?.id ?? "");
   }
@@ -92,6 +95,7 @@ function App() {
       const nextMonthEvents = getEventsForMonth(result.events, nextSelectedMonth);
 
       setEvents(result.events);
+      setToneLabels(result.toneLabels);
       setMonthIndex(nextMonthIndex);
       setSelectedEventId(nextMonthEvents[0]?.id ?? result.events[0]?.id ?? "");
     }
@@ -387,6 +391,7 @@ function App() {
         isOpen={isAdminPanelOpen}
         onClose={() => setIsAdminPanelOpen(false)}
         onPublicEventsChanged={refreshPublicEvents}
+        toneLabels={toneLabels}
       />
     </main>
   );

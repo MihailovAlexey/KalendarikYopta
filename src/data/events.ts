@@ -1,12 +1,4 @@
-import type { CalendarEvent, EventTone } from "../types";
-
-export const toneLabels: Record<EventTone, string> = {
-  violet: "Главный этап",
-  coral: "Фестиваль",
-  sky: "Выезд / шоу",
-  amber: "Локальный ивент",
-  teal: "Регистрация горит",
-};
+import type { CalendarEvent } from "../types";
 
 export const events: CalendarEvent[] = [
   {

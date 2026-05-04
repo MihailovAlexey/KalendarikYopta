@@ -1,3 +1,12 @@
+insert into public.event_tones (tone, label) values
+  ('violet', 'Главный этап'),
+  ('coral', 'Фестиваль'),
+  ('sky', 'Выезд / шоу'),
+  ('amber', 'Локальный ивент'),
+  ('teal', 'Регистрация горит')
+on conflict (tone) do update
+set label = excluded.label;
+
 insert into public.events (
   slug,
   title,

@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ToneLabelMap } from "../data/toneLabels";
 import {
   createEmptyEditableEvent,
   getAdminSession,
   loadAdminEvents,
+  loadAdminTones,
+  saveAdminTone,
   saveAdminEvent,
   type EditableEvent,
 } from "../lib/adminStore";
@@ -11,15 +14,10 @@ type AdminPanelProps = {
   isOpen: boolean;
   onClose: () => void;
   onPublicEventsChanged: () => Promise<void>;
+  toneLabels: ToneLabelMap;
 };
 
-const toneOptions = [
-  { value: "violet", label: "Главный этап" },
-  { value: "coral", label: "Фестиваль" },
-  { value: "sky", label: "Выезд / шоу" },
-  { value: "amber", label: "Локальное" },
-  { value: "teal", label: "Регистрация" },
-] as const;
+const toneKeys = ["violet", "coral", "sky", "amber", "teal"] as const;
 
 const statusOptions = [
   { value: "published", label: "Опубликовано" },
@@ -31,14 +29,16 @@ function sortEvents(events: EditableEvent[]) {
   return [...events].sort((left, right) => left.startDate.localeCompare(right.startDate));
 }
 
-export function AdminPanel({ isOpen, onClose, onPublicEventsChanged }: AdminPanelProps) {
+export function AdminPanel({ isOpen, onClose, onPublicEventsChanged, toneLabels: initialToneLabels }: AdminPanelProps) {
   const [isCheckingAccess, setIsCheckingAccess] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [accessError, setAccessError] = useState("");
   const [events, setEvents] = useState<EditableEvent[]>([]);
+  const [toneLabels, setToneLabels] = useState<ToneLabelMap>(initialToneLabels);
   const [selectedSlug, setSelectedSlug] = useState("");
   const [formState, setFormState] = useState<EditableEvent>(createEmptyEditableEvent());
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingTone, setIsSavingTone] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
   const selectedEvent = useMemo(
@@ -72,19 +72,23 @@ export function AdminPanel({ isOpen, onClose, onPublicEventsChanged }: AdminPane
       setIsAdmin(true);
       setAccessError("");
 
-      const result = await loadAdminEvents();
+      const [eventsResult, tonesResult] = await Promise.all([loadAdminEvents(), loadAdminTones()]);
       if (disposed) {
         return;
       }
 
-      if (!result.ok) {
-        setStatusMessage(result.error ?? "Не удалось загрузить события.");
+      if (!eventsResult.ok) {
+        setStatusMessage(eventsResult.error ?? "Не удалось загрузить события.");
         setEvents([]);
         setIsCheckingAccess(false);
         return;
       }
 
-      const nextEvents = sortEvents(result.events);
+      if (tonesResult.ok) {
+        setToneLabels(tonesResult.toneLabels);
+      }
+
+      const nextEvents = sortEvents(eventsResult.events);
       setEvents(nextEvents);
       const firstEvent = nextEvents[0] ?? createEmptyEditableEvent();
       setSelectedSlug(firstEvent.originalSlug || firstEvent.id);
@@ -98,6 +102,10 @@ export function AdminPanel({ isOpen, onClose, onPublicEventsChanged }: AdminPane
       disposed = true;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    setToneLabels(initialToneLabels);
+  }, [initialToneLabels]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -168,6 +176,21 @@ export function AdminPanel({ isOpen, onClose, onPublicEventsChanged }: AdminPane
     await onPublicEventsChanged();
   }
 
+  async function handleSaveTone(tone: keyof ToneLabelMap) {
+    setIsSavingTone(true);
+    setStatusMessage("");
+    const result = await saveAdminTone(tone, toneLabels[tone]);
+    setIsSavingTone(false);
+
+    if (!result.ok) {
+      setStatusMessage(result.error ?? "Не удалось сохранить метку.");
+      return;
+    }
+
+    setStatusMessage("Метки цветов сохранены.");
+    await onPublicEventsChanged();
+  }
+
   if (!isOpen) {
     return null;
   }
@@ -228,6 +251,36 @@ export function AdminPanel({ isOpen, onClose, onPublicEventsChanged }: AdminPane
             </aside>
 
             <section className="admin-form-grid">
+              <div className="admin-field admin-field-wide admin-tone-block">
+                <span>Подписи цветовых меток</span>
+                <div className="admin-tone-grid">
+                  {toneKeys.map((tone) => (
+                    <label className="admin-field" key={tone}>
+                      <span>{tone}</span>
+                      <div className="admin-tone-row">
+                        <input
+                          value={toneLabels[tone]}
+                          onChange={(event) =>
+                            setToneLabels((current) => ({
+                              ...current,
+                              [tone]: event.target.value,
+                            }))
+                          }
+                        />
+                        <button
+                          className="secondary-button admin-tone-save"
+                          disabled={isSavingTone}
+                          onClick={() => void handleSaveTone(tone)}
+                          type="button"
+                        >
+                          Сохранить
+                        </button>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <label className="admin-field">
                 <span>Slug</span>
                 <input
@@ -279,9 +332,9 @@ export function AdminPanel({ isOpen, onClose, onPublicEventsChanged }: AdminPane
                   value={formState.tone}
                   onChange={(event) => updateField("tone", event.target.value as EditableEvent["tone"])}
                 >
-                  {toneOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
+                  {toneKeys.map((tone) => (
+                    <option key={tone} value={tone}>
+                      {toneLabels[tone]}
                     </option>
                   ))}
                 </select>

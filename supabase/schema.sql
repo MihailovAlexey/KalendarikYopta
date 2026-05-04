@@ -38,6 +38,11 @@ create table if not exists public.events (
   constraint events_end_date_check check (end_date is null or end_date >= start_date)
 );
 
+create table if not exists public.event_tones (
+  tone public.event_tone primary key,
+  label text not null
+);
+
 create table if not exists public.admins (
   id uuid primary key default gen_random_uuid(),
   telegram_user_id bigint not null unique,
@@ -80,6 +85,7 @@ for each row
 execute function public.set_updated_at();
 
 alter table public.events enable row level security;
+alter table public.event_tones enable row level security;
 alter table public.event_subscriptions enable row level security;
 alter table public.admins enable row level security;
 
@@ -89,6 +95,13 @@ on public.events
 for select
 to anon, authenticated
 using (status = 'published');
+
+drop policy if exists "Event tones are readable by everyone" on public.event_tones;
+create policy "Event tones are readable by everyone"
+on public.event_tones
+for select
+to anon, authenticated
+using (true);
 
 drop policy if exists "No direct subscription access for anon users" on public.event_subscriptions;
 create policy "No direct subscription access for anon users"
