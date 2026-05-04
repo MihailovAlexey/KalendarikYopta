@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AdminPanel } from "./components/AdminPanel";
 import { events as fallbackEvents, toneLabels } from "./data/events";
 import {
   buildMonthGrid,
@@ -13,6 +14,7 @@ import {
   isSameMonth,
   parseIsoDate,
 } from "./lib/calendar";
+import { getAdminSession } from "./lib/adminStore";
 import { loadEvents } from "./lib/eventStore";
 import {
   initializeTelegramWebApp,
@@ -27,6 +29,8 @@ function App() {
   const [subscribedEventIds, setSubscribedEventIds] = useState<string[]>([]);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(false);
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
 
   const availableMonths = getAvailableMonths(events);
   const safeMonthIndex =
@@ -42,14 +46,36 @@ function App() {
 
   useEffect(() => {
     initializeTelegramWebApp();
+    void (async () => {
+      const session = await getAdminSession();
+      setIsAdmin(Boolean(session.ok && session.isAdmin));
+    })();
   }, []);
+
+  async function refreshPublicEvents() {
+    const result = await loadEvents();
+
+    const nextMonths = getAvailableMonths(result.events);
+    const nextMonthIndex = Math.max(
+      nextMonths.findIndex((month) => {
+        const today = new Date();
+        return month.getMonth() === today.getMonth() && month.getFullYear() === today.getFullYear();
+      }),
+      0,
+    );
+    const nextSelectedMonth = nextMonths[nextMonthIndex] ?? new Date(2026, 4, 1, 12);
+    const nextMonthEvents = getEventsForMonth(result.events, nextSelectedMonth);
+
+    setEvents(result.events);
+    setMonthIndex(nextMonthIndex);
+    setSelectedEventId(nextMonthEvents[0]?.id ?? result.events[0]?.id ?? "");
+  }
 
   useEffect(() => {
     let isDisposed = false;
 
     async function bootstrapData() {
       const result = await loadEvents();
-
       if (isDisposed) {
         return;
       }
@@ -132,6 +158,15 @@ function App() {
             Ближайшие события сезона в одном календаре: даты, площадки, ссылки и
             напоминания в Telegram.
           </p>
+          {isAdmin ? (
+            <button
+              className="secondary-button hero-admin-button"
+              onClick={() => setIsAdminPanelOpen(true)}
+              type="button"
+            >
+              Управление событиями
+            </button>
+          ) : null}
         </div>
 
         <div className="hero-stats">
@@ -347,6 +382,12 @@ function App() {
           </section>
         </div>
       </section>
+
+      <AdminPanel
+        isOpen={isAdminPanelOpen}
+        onClose={() => setIsAdminPanelOpen(false)}
+        onPublicEventsChanged={refreshPublicEvents}
+      />
     </main>
   );
 }
