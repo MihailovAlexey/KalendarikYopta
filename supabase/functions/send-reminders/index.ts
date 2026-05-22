@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { buildReminderText } from "../_shared/reminderText.ts";
 import { telegramApi } from "../_shared/telegram.ts";
 
 type ReminderRow = {
@@ -25,25 +26,6 @@ const supabase = createClient(
 
 function dateDiffHours(from: Date, to: Date) {
   return (to.getTime() - from.getTime()) / (1000 * 60 * 60);
-}
-
-function parseDateUtc(dateString: string) {
-  return new Date(`${dateString}T12:00:00.000Z`);
-}
-
-function formatReminderText(event: ReminderRow, hoursBeforeStart: 24 | 3) {
-  const dateLabel = new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-  }).format(parseDateUtc(event.start_date));
-
-  const linkLine = event.external_url ? `\nСсылка: ${event.external_url}` : "";
-
-  return (
-    `Напоминание: через ${hoursBeforeStart} ч. мероприятие "${event.title}".\n` +
-    `Дата: ${dateLabel}\n` +
-    `Место: ${event.place}, ${event.city}${linkLine}`
-  );
 }
 
 Deno.serve(async (req) => {
@@ -130,7 +112,7 @@ Deno.serve(async (req) => {
       ) {
         await telegramApi(botToken, "sendMessage", {
           chat_id: reminderRow.telegram_user_id,
-          text: formatReminderText(reminderRow, 24),
+          text: buildReminderText(reminderRow, 24),
         });
 
         reminders.push({
@@ -147,7 +129,7 @@ Deno.serve(async (req) => {
       ) {
         await telegramApi(botToken, "sendMessage", {
           chat_id: reminderRow.telegram_user_id,
-          text: formatReminderText(reminderRow, 3),
+          text: buildReminderText(reminderRow, 3),
         });
 
         reminders.push({

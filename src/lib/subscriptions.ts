@@ -1,4 +1,5 @@
 import { getSupabasePublicKey, isSupabaseConfigured } from "./supabase";
+import { buildSubscriptionStatusMessage } from "./subscriptionMessages";
 import { getTelegramInitData, isTelegramWebAppAvailable } from "./telegramWebApp";
 
 type SubscriptionAction = "subscribe" | "unsubscribe";
@@ -70,9 +71,6 @@ export async function syncEventSubscription(
   return {
     ok: true,
     mode: "remote" as const,
-    message:
-      action === "subscribe"
-        ? `Подписка на "${json.title ?? eventSlug}" сохранена.`
-        : `Подписка на "${json.title ?? eventSlug}" отключена.`,
+    message: buildSubscriptionStatusMessage(json.title ?? eventSlug, action),
   };
 }
