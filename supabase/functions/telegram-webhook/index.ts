@@ -102,6 +102,15 @@ function normalizeCommand(text: string) {
   return command.toLowerCase().split("@")[0];
 }
 
+function getCommandArgs(text: string) {
+  const [, ...rest] = text.trim().split(/\s+/);
+  return rest.join(" ").trim();
+}
+
+function escapeIlike(value: string) {
+  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
+}
+
 async function loadNearEvents(limit: number) {
   const todayIso = getMoscowTodayIso();
   const { data, error } = await supabase
@@ -150,6 +159,23 @@ async function loadCurrentMonthEvents() {
     .gte("start_date", monthStart)
     .lte("start_date", monthEnd)
     .order("start_date", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data satisfies EventRow[];
+}
+
+async function searchEventsByTitle(rawQuery: string, limit = 5) {
+  const query = escapeIlike(rawQuery);
+  const { data, error } = await supabase
+    .from("events")
+    .select("title, start_date, end_date, place, city, external_url")
+    .eq("status", "published")
+    .ilike("title", `%${query}%`)
+    .order("start_date", { ascending: true })
+    .limit(limit);
 
   if (error) {
     throw error;
@@ -251,6 +277,22 @@ Deno.serve(async (req) => {
           ? `Мероприятия на ${monthLabel}:\n\n${events.map(formatEventLine).join("\n\n")}`
           : `На ${monthLabel} опубликованных мероприятий пока нет.`;
       await sendText(botToken, chatId, reply);
+    } else if (command === "/find") {
+      const query = getCommandArgs(text);
+      if (!query) {
+        await sendText(
+          botToken,
+          chatId,
+          'Использование: /find <часть названия>\nНапример: /find iddc',
+        );
+      } else {
+        const events = await searchEventsByTitle(query, 5);
+        const reply =
+          events.length > 0
+            ? `Найдено по запросу "${query}":\n\n${events.map(formatEventLine).join("\n\n")}`
+            : `По запросу "${query}" ничего не найдено.`;
+        await sendText(botToken, chatId, reply);
+      }
     } else if (command === "/help") {
       const isGroup = message.chat?.type === "group" || message.chat?.type === "supergroup";
       await sendText(
@@ -262,6 +304,7 @@ Deno.serve(async (req) => {
           "/near — ближайшие 3 мероприятия",
           "/today — что идет сегодня",
           "/month — события текущего месяца",
+          "/find <название> — поиск по названию",
           "/help — показать эту подсказку",
         ].join("\n"),
       );
