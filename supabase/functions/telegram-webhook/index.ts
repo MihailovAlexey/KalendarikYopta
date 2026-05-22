@@ -22,6 +22,10 @@ type EventRow = {
   external_url: string | null;
 };
 
+type TelegramBotProfile = {
+  username?: string;
+};
+
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -162,6 +166,15 @@ async function sendText(botToken: string, chatId: number, text: string) {
   });
 }
 
+async function getMiniAppDirectLink(botToken: string) {
+  const profile = await telegramApi<TelegramBotProfile>(botToken, "getMe", {});
+  if (!profile.username) {
+    throw new Error("Bot username is missing in getMe response.");
+  }
+
+  return `https://t.me/${profile.username}?startapp`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "GET") {
     return jsonResponse({
@@ -195,13 +208,24 @@ Deno.serve(async (req) => {
 
     if (command === "/start" || command === "/calendar") {
       const firstName = message.from?.first_name ?? "друг";
-      await telegramApi(botToken, "sendMessage", {
-        chat_id: chatId,
-        text:
-          `Привет, ${firstName}.\n\n` +
-          "Это календарь летних мероприятий. Открой мини-приложение кнопкой ниже, чтобы посмотреть события и подписаться на напоминания.",
-        reply_markup: buildMiniAppKeyboard(miniAppUrl),
-      });
+      const isGroup = message.chat?.type === "group" || message.chat?.type === "supergroup";
+
+      if (isGroup) {
+        const directLink = await getMiniAppDirectLink(botToken);
+        await sendText(
+          botToken,
+          chatId,
+          `Привет, ${firstName}.\n\nОткрыть календарь из группы можно по прямой ссылке:\n${directLink}`,
+        );
+      } else {
+        await telegramApi(botToken, "sendMessage", {
+          chat_id: chatId,
+          text:
+            `Привет, ${firstName}.\n\n` +
+            "Это календарь летних мероприятий. Открой мини-приложение кнопкой ниже, чтобы посмотреть события и подписаться на напоминания.",
+          reply_markup: buildMiniAppKeyboard(miniAppUrl),
+        });
+      }
     } else if (command === "/near") {
       const events = await loadNearEvents(3);
       const reply =
