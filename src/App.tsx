@@ -8,9 +8,12 @@ import {
   formatEventDateRange,
   formatMonthLabel,
   getAvailableMonths,
+  getTodayDate,
   getEventsForMonth,
   getUpcomingEvent,
   getWeekdayNames,
+  isDatePast,
+  isEventPast,
   isSameDay,
   isSameMonth,
   parseIsoDate,
@@ -27,6 +30,7 @@ function App() {
   const [events, setEvents] = useState<CalendarEvent[]>(fallbackEvents);
   const [toneLabels, setToneLabels] = useState<ToneLabelMap>(fallbackToneLabels);
   const [monthIndex, setMonthIndex] = useState(0);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [subscribedEventIds, setSubscribedEventIds] = useState<string[]>([]);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(false);
@@ -41,7 +45,15 @@ function App() {
       : Math.min(monthIndex, Math.max(availableMonths.length - 1, 0));
   const selectedMonth = availableMonths[safeMonthIndex] ?? new Date(2026, 4, 1, 12);
   const monthEvents = getEventsForMonth(events, selectedMonth);
-  const selectedEvent = monthEvents.find((event) => event.id === selectedEventId) ?? monthEvents[0];
+  const selectedDayEvents =
+    selectedDate && isSameMonth(selectedDate, selectedMonth)
+      ? monthEvents.filter((event) => eventOccursOnDate(event, selectedDate))
+      : [];
+  const selectedEvent =
+    selectedDayEvents.find((event) => event.id === selectedEventId) ??
+    monthEvents.find((event) => event.id === selectedEventId) ??
+    selectedDayEvents[0] ??
+    monthEvents[0];
   const monthGrid = buildMonthGrid(selectedMonth);
   const weekdayNames = getWeekdayNames();
   const nextEvent = getUpcomingEvent(events);
@@ -54,23 +66,50 @@ function App() {
     })();
   }, []);
 
-  async function refreshPublicEvents() {
-    const result = await loadEvents();
+  function resolveMonthIndex(nextEvents: CalendarEvent[]) {
+    const nextMonths = getAvailableMonths(nextEvents);
+    const today = getTodayDate();
+    const currentMonthIndex = nextMonths.findIndex((month) => isSameMonth(month, today));
 
-    const nextMonths = getAvailableMonths(result.events);
-    const nextMonthIndex = Math.max(
-      nextMonths.findIndex((month) => {
-        const today = new Date();
-        return month.getMonth() === today.getMonth() && month.getFullYear() === today.getFullYear();
-      }),
+    if (currentMonthIndex >= 0) {
+      return currentMonthIndex;
+    }
+
+    const upcomingEvent = getUpcomingEvent(nextEvents, today);
+    if (!upcomingEvent) {
+      return 0;
+    }
+
+    return Math.max(
+      nextMonths.findIndex((month) => isSameMonth(month, parseIsoDate(upcomingEvent.startDate))),
       0,
     );
+  }
+
+  function resolveSelectedDate(month: Date, nextMonthEvents: CalendarEvent[]) {
+    const today = getTodayDate();
+
+    if (isSameMonth(month, today)) {
+      return today;
+    }
+
+    return nextMonthEvents[0]
+      ? parseIsoDate(nextMonthEvents[0].startDate)
+      : new Date(month.getFullYear(), month.getMonth(), 1, 12);
+  }
+
+  async function refreshPublicEvents() {
+    const result = await loadEvents();
+    const nextMonths = getAvailableMonths(result.events);
+    const nextMonthIndex = resolveMonthIndex(result.events);
     const nextSelectedMonth = nextMonths[nextMonthIndex] ?? new Date(2026, 4, 1, 12);
     const nextMonthEvents = getEventsForMonth(result.events, nextSelectedMonth);
+    const nextSelectedDate = resolveSelectedDate(nextSelectedMonth, nextMonthEvents);
 
     setEvents(result.events);
     setToneLabels(result.toneLabels);
     setMonthIndex(nextMonthIndex);
+    setSelectedDate(nextSelectedDate);
     setSelectedEventId(nextMonthEvents[0]?.id ?? result.events[0]?.id ?? "");
   }
 
@@ -84,19 +123,15 @@ function App() {
       }
 
       const nextMonths = getAvailableMonths(result.events);
-      const nextMonthIndex = Math.max(
-        nextMonths.findIndex((month) => {
-          const today = new Date();
-          return month.getMonth() === today.getMonth() && month.getFullYear() === today.getFullYear();
-        }),
-        0,
-      );
+      const nextMonthIndex = resolveMonthIndex(result.events);
       const nextSelectedMonth = nextMonths[nextMonthIndex] ?? new Date(2026, 4, 1, 12);
       const nextMonthEvents = getEventsForMonth(result.events, nextSelectedMonth);
+      const nextSelectedDate = resolveSelectedDate(nextSelectedMonth, nextMonthEvents);
 
       setEvents(result.events);
       setToneLabels(result.toneLabels);
       setMonthIndex(nextMonthIndex);
+      setSelectedDate(nextSelectedDate);
       setSelectedEventId(nextMonthEvents[0]?.id ?? result.events[0]?.id ?? "");
     }
 
@@ -116,16 +151,50 @@ function App() {
     }
   }, [events, monthEvents, selectedEvent, selectedEventId]);
 
+  useEffect(() => {
+    if (!selectedDate || !isSameMonth(selectedDate, selectedMonth)) {
+      const nextSelectedDate = resolveSelectedDate(selectedMonth, monthEvents);
+      setSelectedDate(nextSelectedDate);
+      return;
+    }
+
+    const nextDayEvents = monthEvents.filter((event) => eventOccursOnDate(event, selectedDate));
+    if (nextDayEvents.length > 0 && !nextDayEvents.some((event) => event.id === selectedEventId)) {
+      setSelectedEventId(nextDayEvents[0].id);
+    }
+  }, [monthEvents, selectedDate, selectedEventId, selectedMonth]);
+
   function showPreviousMonth() {
-    setMonthIndex((index) => Math.max(index - 1, 0));
+    setMonthIndex((index) => {
+      const nextIndex = Math.max(index - 1, 0);
+      const nextMonth = availableMonths[nextIndex];
+      if (nextMonth) {
+        const nextMonthEvents = getEventsForMonth(events, nextMonth);
+        const nextSelectedDate = resolveSelectedDate(nextMonth, nextMonthEvents);
+        setSelectedDate(nextSelectedDate);
+        setSelectedEventId(nextMonthEvents[0]?.id ?? "");
+      }
+      return nextIndex;
+    });
   }
 
   function showNextMonth() {
-    setMonthIndex((index) => Math.min(index + 1, availableMonths.length - 1));
+    setMonthIndex((index) => {
+      const nextIndex = Math.min(index + 1, availableMonths.length - 1);
+      const nextMonth = availableMonths[nextIndex];
+      if (nextMonth) {
+        const nextMonthEvents = getEventsForMonth(events, nextMonth);
+        const nextSelectedDate = resolveSelectedDate(nextMonth, nextMonthEvents);
+        setSelectedDate(nextSelectedDate);
+        setSelectedEventId(nextMonthEvents[0]?.id ?? "");
+      }
+      return nextIndex;
+    });
   }
 
   function handleDayClick(date: Date) {
     const dayEvents = monthEvents.filter((event) => eventOccursOnDate(event, date));
+    setSelectedDate(date);
     if (dayEvents[0]) {
       setSelectedEventId(dayEvents[0].id);
     }
@@ -233,18 +302,19 @@ function App() {
           <div className="calendar-grid">
             {monthGrid.map((date) => {
               const dayEvents = monthEvents.filter((event) => eventOccursOnDate(event, date));
-              const hasSelectedEvent =
-                selectedEvent && dayEvents.some((event) => event.id === selectedEvent.id);
+              const isSelectedDate = selectedDate ? isSameDay(date, selectedDate) : false;
               const isToday = isSameDay(date, new Date());
               const inCurrentMonth = isSameMonth(date, selectedMonth);
+              const isPast = isDatePast(date);
 
               return (
                 <button
                   className={[
                     "calendar-day",
                     inCurrentMonth ? "" : "is-muted",
-                    hasSelectedEvent ? "is-selected" : "",
+                    isSelectedDate ? "is-selected" : "",
                     isToday ? "is-today" : "",
+                    isPast ? "is-past" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
@@ -275,77 +345,138 @@ function App() {
 
         <div className="side-stack">
           <section className="panel detail-panel">
-            <div className="detail-topline">
-              <span className={`event-badge ${selectedEvent?.tone ?? "violet"}`}>
-                {selectedEvent ? toneLabels[selectedEvent.tone] : "Событие"}
-              </span>
-              {selectedEvent ? (
-                <span className="detail-date">{formatEventDateRange(selectedEvent)}</span>
-              ) : null}
-            </div>
-
-            <h2>{selectedEvent?.title ?? "Нет событий в этом месяце"}</h2>
-
-            {selectedEvent ? (
+            {selectedDayEvents.length > 0 ? (
               <>
-                <p className="detail-meta">
-                  {selectedEvent.place}, {selectedEvent.city}
-                </p>
-
-                <p className="detail-comment">
-                  {selectedEvent.comment ??
-                    "Комментарий можно будет редактировать из админского интерфейса."}
-                </p>
-
-                {selectedEvent.registrationDeadline ? (
-                  <div className="warning-box">
-                    Регистрация до{" "}
-                    {new Intl.DateTimeFormat("ru-RU", {
-                      day: "numeric",
-                      month: "long",
-                    }).format(parseIsoDate(selectedEvent.registrationDeadline))}
+                <div className="detail-header">
+                  <div>
+                    <p className="panel-kicker">На выбранную дату</p>
+                    <h2>
+                      {selectedDayEvents.length === 1
+                        ? "1 мероприятие"
+                        : `${selectedDayEvents.length} мероприятий`}
+                    </h2>
                   </div>
-                ) : null}
+                  {selectedDate ? (
+                    <span className="detail-date">
+                      {new Intl.DateTimeFormat("ru-RU", {
+                        day: "numeric",
+                        month: "long",
+                      }).format(selectedDate)}
+                    </span>
+                  ) : null}
+                </div>
 
-                <div className="action-row">
-                  {selectedEvent.link ? (
-                    <a
-                      className="primary-button"
-                      href={selectedEvent.link}
-                      rel="noreferrer"
-                      target="_blank"
+                <div className="detail-stack">
+                  {selectedDayEvents.map((event) => (
+                    <article
+                      className={[
+                        "detail-card",
+                        isEventPast(event) ? "is-past" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      key={event.id}
                     >
-                      Открыть ссылку
-                    </a>
-                  ) : (
-                    <button className="primary-button disabled" disabled type="button">
-                      Ссылка появится позже
-                    </button>
-                  )}
+                      <div className="detail-topline">
+                        <span className={`event-badge ${event.tone}`}>
+                          {toneLabels[event.tone]}
+                        </span>
+                        <span className="detail-date">{formatEventDateRange(event)}</span>
+                      </div>
 
-                  <button
-                    className="secondary-button"
-                    disabled={isSubscriptionLoading}
-                    onClick={() => void toggleSubscription(selectedEvent.id)}
-                    type="button"
-                  >
-                    {isSubscriptionLoading
-                      ? "Обновляем..."
-                      : subscribedEventIds.includes(selectedEvent.id)
-                      ? "Напоминание включено"
-                      : "Напомнить мне"}
-                  </button>
+                      <h2>{event.title}</h2>
+
+                      <p className="detail-meta">
+                        {event.place}, {event.city}
+                      </p>
+
+                      <p className="detail-comment">
+                        {event.comment?.trim() || "Комментарий пока не добавлен."}
+                      </p>
+
+                      {event.registrationDeadline ? (
+                        <div className="warning-box">
+                          Регистрация до{" "}
+                          {new Intl.DateTimeFormat("ru-RU", {
+                            day: "numeric",
+                            month: "long",
+                          }).format(parseIsoDate(event.registrationDeadline))}
+                        </div>
+                      ) : null}
+
+                      <div className="action-row">
+                        {event.link ? (
+                          <a
+                            className="primary-button"
+                            href={event.link}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            Открыть ссылку
+                          </a>
+                        ) : (
+                          <button className="primary-button disabled" disabled type="button">
+                            Ссылка появится позже
+                          </button>
+                        )}
+
+                        <button
+                          className="secondary-button"
+                          disabled={isSubscriptionLoading}
+                          onClick={() => void toggleSubscription(event.id)}
+                          type="button"
+                        >
+                          {isSubscriptionLoading
+                            ? "Обновляем..."
+                            : subscribedEventIds.includes(event.id)
+                            ? "Напоминание включено"
+                            : "Напомнить мне"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
 
                 {subscriptionMessage ? (
                   <div className="subscription-box">{subscriptionMessage}</div>
                 ) : null}
               </>
+            ) : selectedDate && isSameMonth(selectedDate, selectedMonth) ? (
+              <>
+                <div className="detail-header">
+                  <div>
+                    <p className="panel-kicker">На выбранную дату</p>
+                    <h2>Событий нет</h2>
+                  </div>
+                  <span className="detail-date">
+                    {new Intl.DateTimeFormat("ru-RU", {
+                      day: "numeric",
+                      month: "long",
+                    }).format(selectedDate)}
+                  </span>
+                </div>
+
+                <p className="detail-comment">На эту дату пока ничего не запланировано.</p>
+              </>
+            ) : selectedEvent ? (
+              <>
+                <div className="detail-topline">
+                  <span className={`event-badge ${selectedEvent.tone}`}>
+                    {toneLabels[selectedEvent.tone]}
+                  </span>
+                  <span className="detail-date">{formatEventDateRange(selectedEvent)}</span>
+                </div>
+
+                <h2>{selectedEvent.title}</h2>
+                <p className="detail-meta">
+                  {selectedEvent.place}, {selectedEvent.city}
+                </p>
+                <p className="detail-comment">
+                  {selectedEvent.comment?.trim() || "Комментарий пока не добавлен."}
+                </p>
+              </>
             ) : (
-              <p className="detail-comment">
-                Для этого месяца пока нет карточек. После подключения Supabase события
-                будут приходить из базы.
-              </p>
+              <p className="detail-comment">Для этого месяца пока нет событий.</p>
             )}
           </section>
 
@@ -362,12 +493,18 @@ function App() {
                 <button
                   className={[
                     "event-row",
-                    selectedEvent?.id === event.id ? "is-active" : "",
+                    selectedDayEvents.some((dayEvent) => dayEvent.id === event.id)
+                      ? "is-active"
+                      : "",
+                    isEventPast(event) ? "is-past" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
                   key={event.id}
-                  onClick={() => setSelectedEventId(event.id)}
+                  onClick={() => {
+                    setSelectedDate(parseIsoDate(event.startDate));
+                    setSelectedEventId(event.id);
+                  }}
                   type="button"
                 >
                   <div className={`event-row-stripe ${event.tone}`} />

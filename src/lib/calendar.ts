@@ -11,6 +11,10 @@ export function parseIsoDate(value: string) {
   return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
 
+export function getTodayDate(today = new Date()) {
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0);
+}
+
 export function formatMonthLabel(date: Date) {
   return new Intl.DateTimeFormat("ru-RU", {
     month: "long",
@@ -92,10 +96,19 @@ export function isSameMonth(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 }
 
+export function isDatePast(date: Date, today = new Date()) {
+  return date.getTime() < getTodayDate(today).getTime();
+}
+
 export function eventOccursOnDate(event: CalendarEvent, date: Date) {
   const start = parseIsoDate(event.startDate);
   const end = event.endDate ? parseIsoDate(event.endDate) : start;
   return start <= date && end >= date;
+}
+
+export function isEventPast(event: CalendarEvent, today = new Date()) {
+  const end = event.endDate ? parseIsoDate(event.endDate) : parseIsoDate(event.startDate);
+  return end.getTime() < getTodayDate(today).getTime();
 }
 
 export function getEventsForMonth(events: CalendarEvent[], monthDate: Date) {
@@ -136,4 +149,3 @@ export function getUpcomingEvent(events: CalendarEvent[], today = new Date()) {
     .filter((event) => parseIsoDate(event.startDate) >= normalizedToday)
     .sort((left, right) => left.startDate.localeCompare(right.startDate))[0];
 }
-
